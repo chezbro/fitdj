@@ -1,10 +1,13 @@
-// File: app/(tabs)/index.tsx
+// File: SettingsScreen.js
+// Path: /FITDJ/screens/SettingsScreen.js
+
+import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-export default function Home() {
+export function SettingsScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to FITDJ</Text>
+      <Text style={styles.text}>Settings Screen</Text>
     </View>
   );
 }
@@ -12,11 +15,10 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  title: {
+  text: {
     fontSize: 20,
-    fontWeight: 'bold',
   },
 });

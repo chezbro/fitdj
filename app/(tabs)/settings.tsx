@@ -1,10 +1,10 @@
-// File: app/(tabs)/index.tsx
+// File: app/(tabs)/settings.tsx
 import { View, Text, StyleSheet } from 'react-native';
 
-export default function Home() {
+export default function Settings() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to FITDJ</Text>
+      <Text style={styles.title}>Settings</Text>
     </View>
   );
 }

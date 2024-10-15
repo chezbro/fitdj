@@ -1,10 +1,10 @@
-// File: app/(tabs)/index.tsx
+// File: app/(tabs)/history.tsx
 import { View, Text, StyleSheet } from 'react-native';
 
-export default function Home() {
+export default function History() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to FITDJ</Text>
+      <Text style={styles.title}>Workout History</Text>
     </View>
   );
 }
