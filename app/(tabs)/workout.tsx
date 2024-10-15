@@ -5,6 +5,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import voiceAI from '../../services/voiceAI';
 import spotifyPlayer from '../../services/spotifyPlayer';
 import { Exercise, fullBodyWorkout } from '../../models/workoutModel';
+import { authorize as spotifyAuthorize } from 'react-native-app-auth';
+import Constants from 'expo-constants';
 
 export default function Workout() {
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
@@ -12,11 +14,13 @@ export default function Workout() {
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
   const [currentVoiceCueIndex, setCurrentVoiceCueIndex] = useState(0);
+  const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null);
 
   useEffect(() => {
     const initializeServices = async () => {
       try {
-        await spotifyPlayer.authorize();
+        const token = await spotifyPlayer.authorize();
+        setSpotifyAccessToken(token);
         setIsInitialized(true);
       } catch (error) {
         console.error('Failed to initialize services:', error);
@@ -50,16 +54,17 @@ export default function Workout() {
   }, [isWorkoutActive, timeRemaining, currentExerciseIndex, currentVoiceCueIndex]);
 
   const startWorkout = async () => {
-    if (!isInitialized) {
+    if (!isInitialized || !spotifyAccessToken) {
       Alert.alert('Error', 'Services are not initialized yet. Please wait and try again.');
       return;
     }
 
-    setIsWorkoutActive(true);
-    setCurrentExerciseIndex(0);
-    setTimeRemaining(fullBodyWorkout[0].duration);
-    setCurrentVoiceCueIndex(0);
     try {
+      setIsWorkoutActive(true);
+      setCurrentExerciseIndex(0);
+      setTimeRemaining(fullBodyWorkout[0].duration);
+      setCurrentVoiceCueIndex(0);
+
       await voiceAI.speak(`Let's start our workout with ${fullBodyWorkout[0].name}. ${fullBodyWorkout[0].description}`);
       await spotifyPlayer.play(fullBodyWorkout[0].spotifyTrackUri);
     } catch (error) {
@@ -74,7 +79,9 @@ export default function Workout() {
     setTimeRemaining(0);
     setCurrentVoiceCueIndex(0);
     try {
-      await spotifyPlayer.pause();
+      if (spotifyAccessToken) {
+        await spotifyPlayer.pause();
+      }
       await voiceAI.speak("Great job! You've completed your workout. Remember to stay hydrated and stretch.");
     } catch (error) {
       console.error('Error ending workout:', error);

@@ -1,14 +1,15 @@
 // File: services/voiceAI.ts
 import { Audio } from 'expo-av';
+import Constants from 'expo-constants';
 
 class VoiceAI {
   private apiKey: string;
   private voiceId: string;
   private sound: Audio.Sound | null = null;
 
-  constructor(apiKey: string, voiceId: string) {
-    this.apiKey = apiKey;
-    this.voiceId = voiceId;
+  constructor() {
+    this.apiKey = Constants.expoConfig?.extra?.ELEVENLABS_API_KEY || '';
+    this.voiceId = Constants.expoConfig?.extra?.ELEVENLABS_VOICE_ID || '';
   }
 
   async speak(text: string): Promise<void> {
@@ -34,22 +35,36 @@ class VoiceAI {
         throw new Error('Failed to generate speech');
       }
 
-      const arrayBuffer = await response.arrayBuffer();
-      const base64Audio = Buffer.from(arrayBuffer).toString('base64');
+      const blob = await response.blob();
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      
+      return new Promise((resolve, reject) => {
+        reader.onloadend = async () => {
+          if (typeof reader.result === 'string') {
+            const base64Audio = reader.result.split(',')[1];
+            
+            if (this.sound) {
+              await this.sound.unloadAsync();
+            }
 
-      if (this.sound) {
-        await this.sound.unloadAsync();
-      }
+            const { sound } = await Audio.Sound.createAsync(
+              { uri: `data:audio/mpeg;base64,${base64Audio}` },
+              { shouldPlay: true }
+            );
 
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: `data:audio/mpeg;base64,${base64Audio}` },
-        { shouldPlay: true }
-      );
-
-      this.sound = sound;
-      await this.sound.playAsync();
+            this.sound = sound;
+            await this.sound.playAsync();
+            resolve();
+          } else {
+            reject(new Error('Failed to read audio data'));
+          }
+        };
+        reader.onerror = reject;
+      });
     } catch (error) {
       console.error('Error in text-to-speech:', error);
+      throw error;
     }
   }
 
@@ -62,4 +77,5 @@ class VoiceAI {
   }
 }
 
-export default new VoiceAI('YOUR_ELEVENLABS_API_KEY', 'YOUR_CHOSEN_VOICE_ID');
+const voiceAI = new VoiceAI();
+export default voiceAI;
