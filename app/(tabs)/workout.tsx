@@ -1,5 +1,5 @@
 // File: app/(tabs)/workout.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import voiceAI from '../../services/voiceAI';

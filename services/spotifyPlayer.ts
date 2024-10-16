@@ -1,15 +1,14 @@
-import SpotifyWebApi from 'spotify-web-api-js';
+import { Audio } from 'expo-av';
 import Constants from 'expo-constants';
 import { encode as base64Encode } from 'base-64';
 
 class SpotifyPlayer {
-  private spotifyApi: SpotifyWebApi.SpotifyWebApiJs;
+  private sound: Audio.Sound | null = null;
   private accessToken: string | null = null;
   private clientId: string;
   private clientSecret: string;
 
   constructor() {
-    this.spotifyApi = new SpotifyWebApi();
     this.clientId = Constants.expoConfig?.extra?.SPOTIFY_CLIENT_ID || '';
     this.clientSecret = Constants.expoConfig?.extra?.SPOTIFY_CLIENT_SECRET || '';
   }
@@ -48,9 +47,33 @@ class SpotifyPlayer {
     }
 
     try {
-      // Note: With client credentials, you can't control playback.
-      // This method will need to be adjusted based on what's allowed with this token.
-      console.log(`Would play track: ${uri}`);
+      // Get the track information from Spotify API
+      const trackId = uri.split(':').pop();
+      const response = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch track information');
+      }
+
+      const trackData = await response.json();
+      const previewUrl = trackData.preview_url;
+
+      if (!previewUrl) {
+        throw new Error('No preview URL available for this track');
+      }
+
+      // Unload any previously loaded audio
+      if (this.sound) {
+        await this.sound.unloadAsync();
+      }
+
+      // Load and play the audio
+      const { sound } = await Audio.Sound.createAsync({ uri: previewUrl }, { shouldPlay: true });
+      this.sound = sound;
     } catch (error) {
       console.error('Error playing track:', error);
       throw error;
@@ -58,23 +81,13 @@ class SpotifyPlayer {
   }
 
   async pause(): Promise<void> {
-    if (!this.accessToken) {
-      throw new Error('Spotify access token not set');
-    }
-
-    try {
-      // Note: With client credentials, you can't control playback.
-      // This method will need to be adjusted based on what's allowed with this token.
-      console.log('Would pause playback');
-    } catch (error) {
-      console.error('Failed to pause playback:', error);
-      throw error;
+    if (this.sound) {
+      await this.sound.pauseAsync();
     }
   }
 
   setAccessToken(token: string): void {
     this.accessToken = token;
-    this.spotifyApi.setAccessToken(token);
   }
 
   getAccessToken(): string | null {
