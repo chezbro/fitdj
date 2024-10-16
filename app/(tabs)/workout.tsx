@@ -1,12 +1,10 @@
 // File: app/(tabs)/workout.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import voiceAI from '../../services/voiceAI';
 import spotifyPlayer from '../../services/spotifyPlayer';
 import { Exercise, fullBodyWorkout } from '../../models/workoutModel';
-import { authorize as spotifyAuthorize } from 'react-native-app-auth';
-import Constants from 'expo-constants';
 
 export default function Workout() {
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
@@ -14,15 +12,13 @@ export default function Workout() {
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
   const [currentVoiceCueIndex, setCurrentVoiceCueIndex] = useState(0);
-  const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null);
   const [isAuthorizing, setIsAuthorizing] = useState(false);
 
   useEffect(() => {
     const initializeServices = async () => {
       try {
         setIsAuthorizing(true);
-        const token = await spotifyPlayer.authorize();
-        setSpotifyAccessToken(token);
+        await spotifyPlayer.authorize();
         setIsInitialized(true);
       } catch (error) {
         console.error('Failed to initialize services:', error);
@@ -41,7 +37,7 @@ export default function Workout() {
       interval = setInterval(() => {
         setTimeRemaining((prevTime) => prevTime - 1);
         
-        // Trigger voice cues
+        // Trigger voice cues only if workout is active
         const currentExercise = fullBodyWorkout[currentExerciseIndex];
         const cueInterval = Math.floor(currentExercise.duration / currentExercise.voiceCues.length);
         if (timeRemaining % cueInterval === 0 && currentVoiceCueIndex < currentExercise.voiceCues.length) {
@@ -58,8 +54,13 @@ export default function Workout() {
   }, [isWorkoutActive, timeRemaining, currentExerciseIndex, currentVoiceCueIndex]);
 
   const startWorkout = async () => {
-    if (!isInitialized || !spotifyAccessToken) {
+    if (!isInitialized) {
       Alert.alert('Error', 'Services are not initialized yet. Please wait and try again.');
+      return;
+    }
+
+    if (isWorkoutActive) {
+      // Workout is already in progress, don't start a new one
       return;
     }
 
@@ -69,11 +70,13 @@ export default function Workout() {
       setTimeRemaining(fullBodyWorkout[0].duration);
       setCurrentVoiceCueIndex(0);
 
+      // Start with the first voice cue
       await voiceAI.speak(`Let's start our workout with ${fullBodyWorkout[0].name}. ${fullBodyWorkout[0].description}`);
       await spotifyPlayer.play(fullBodyWorkout[0].spotifyTrackUri);
     } catch (error) {
       console.error('Error starting workout:', error);
       Alert.alert('Error', 'Failed to start workout. Please try again.');
+      setIsWorkoutActive(false); // Reset the state if starting fails
     }
   };
 
@@ -83,10 +86,11 @@ export default function Workout() {
     setTimeRemaining(0);
     setCurrentVoiceCueIndex(0);
     try {
-      if (spotifyAccessToken) {
-        await spotifyPlayer.pause();
+      await spotifyPlayer.pause();
+      // Only speak if the workout was actually active
+      if (isWorkoutActive) {
+        await voiceAI.speak("Great job! You've completed your workout. Remember to stay hydrated and stretch.");
       }
-      await voiceAI.speak("Great job! You've completed your workout. Remember to stay hydrated and stretch.");
     } catch (error) {
       console.error('Error ending workout:', error);
       Alert.alert('Error', 'Failed to end workout properly. Please check your connection.');
