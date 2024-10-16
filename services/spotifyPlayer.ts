@@ -1,126 +1,45 @@
 import SpotifyWebApi from 'spotify-web-api-js';
 import Constants from 'expo-constants';
-import * as crypto from 'expo-crypto';
 import { encode as base64Encode } from 'base-64';
-import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
-
-// Custom stringify function
-function stringify(obj: Record<string, string>): string {
-  return Object.entries(obj)
-    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-    .join('&');
-}
 
 class SpotifyPlayer {
   private spotifyApi: SpotifyWebApi.SpotifyWebApiJs;
   private accessToken: string | null = null;
   private clientId: string;
-  private redirectUri: string;
+  private clientSecret: string;
 
   constructor() {
     this.spotifyApi = new SpotifyWebApi();
     this.clientId = Constants.expoConfig?.extra?.SPOTIFY_CLIENT_ID || '';
-    this.redirectUri = makeRedirectUri({
-      scheme: Constants.expoConfig?.scheme,
-      path: 'spotify-auth-callback',
-    });
+    this.clientSecret = Constants.expoConfig?.extra?.SPOTIFY_CLIENT_SECRET || '';
   }
 
   async authorize(): Promise<string> {
-    if (!this.clientId) {
-      throw new Error('Spotify client ID is not set');
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error('Spotify client ID or client secret is not set');
     }
 
-    const codeVerifier = await this.generateRandomString(64);
-    const codeChallenge = await this.generateCodeChallenge(codeVerifier);
-    const state = await this.generateRandomString(16);
-
-    const queryParams = stringify({
-      client_id: this.clientId,
-      response_type: 'code',
-      redirect_uri: this.redirectUri,
-      code_challenge_method: 'S256',
-      code_challenge: codeChallenge,
-      state: state,
-      scope: 'streaming user-read-email user-read-private user-library-read user-library-modify',
-    });
-
-    const authUrl = `https://accounts.spotify.com/authorize?${queryParams}`;
-
     try {
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, this.redirectUri);
+      const response = await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Basic ' + base64Encode(this.clientId + ':' + this.clientSecret),
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'grant_type=client_credentials',
+      });
 
-      if (result.type === 'success' && result.url) {
-        const { code, state: returnedState } = this.parseQueryString(result.url);
-
-        if (returnedState !== state) {
-          throw new Error('Invalid state');
-        }
-
-        const tokenResult = await this.exchangeCodeForToken(code, codeVerifier);
-        this.setAccessToken(tokenResult.access_token);
-        return tokenResult.access_token;
-      } else {
-        throw new Error('Authorization was canceled or failed');
+      if (!response.ok) {
+        throw new Error('Failed to obtain access token');
       }
+
+      const data = await response.json();
+      this.setAccessToken(data.access_token);
+      return data.access_token;
     } catch (error) {
       console.error('Failed to authorize Spotify:', error);
       throw error;
     }
-  }
-
-  private parseQueryString(url: string): Record<string, string> {
-    const params = new URLSearchParams(url.split('?')[1]);
-    const result: Record<string, string> = {};
-    for (const [key, value] of params) {
-      result[key] = value;
-    }
-    return result;
-  }
-
-  private async exchangeCodeForToken(code: string, codeVerifier: string): Promise<any> {
-    const tokenUrl = 'https://accounts.spotify.com/api/token';
-    const body = stringify({
-      grant_type: 'authorization_code',
-      code: code,
-      redirect_uri: this.redirectUri,
-      client_id: this.clientId,
-      code_verifier: codeVerifier,
-    });
-
-    const response = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: body,
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to exchange code for token');
-    }
-
-    return response.json();
-  }
-
-  private async generateRandomString(length: number): Promise<string> {
-    const randomBytes = await crypto.getRandomBytesAsync(length);
-    return base64Encode(String.fromCharCode(...new Uint8Array(randomBytes)))
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=/g, '');
-  }
-
-  private async generateCodeChallenge(codeVerifier: string): Promise<string> {
-    const digest = await crypto.digestStringAsync(
-      crypto.CryptoDigestAlgorithm.SHA256,
-      codeVerifier
-    );
-    return base64Encode(String.fromCharCode(...new Uint8Array(digest)))
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=/g, '');
   }
 
   async play(uri: string): Promise<void> {
@@ -129,7 +48,9 @@ class SpotifyPlayer {
     }
 
     try {
-      await this.spotifyApi.play({ uris: [uri] });
+      // Note: With client credentials, you can't control playback.
+      // This method will need to be adjusted based on what's allowed with this token.
+      console.log(`Would play track: ${uri}`);
     } catch (error) {
       console.error('Error playing track:', error);
       throw error;
@@ -142,7 +63,9 @@ class SpotifyPlayer {
     }
 
     try {
-      await this.spotifyApi.pause();
+      // Note: With client credentials, you can't control playback.
+      // This method will need to be adjusted based on what's allowed with this token.
+      console.log('Would pause playback');
     } catch (error) {
       console.error('Failed to pause playback:', error);
       throw error;

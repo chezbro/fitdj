@@ -15,16 +15,20 @@ export default function Workout() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [currentVoiceCueIndex, setCurrentVoiceCueIndex] = useState(0);
   const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null);
+  const [isAuthorizing, setIsAuthorizing] = useState(false);
 
   useEffect(() => {
     const initializeServices = async () => {
       try {
+        setIsAuthorizing(true);
         const token = await spotifyPlayer.authorize();
         setSpotifyAccessToken(token);
         setIsInitialized(true);
       } catch (error) {
         console.error('Failed to initialize services:', error);
-        Alert.alert('Error', 'Failed to initialize services. Please try again.');
+        Alert.alert('Error', `Failed to authorize Spotify: ${error.message}`);
+      } finally {
+        setIsAuthorizing(false);
       }
     };
 
@@ -126,12 +130,12 @@ export default function Workout() {
         <View style={styles.workoutInactive}>
           <Text style={styles.title}>Ready for your FITDJ workout?</Text>
           <TouchableOpacity 
-            style={[styles.button, !isInitialized && styles.buttonDisabled]} 
+            style={[styles.button, (!isInitialized || isAuthorizing) && styles.buttonDisabled]} 
             onPress={startWorkout}
-            disabled={!isInitialized}
+            disabled={!isInitialized || isAuthorizing}
           >
             <Text style={styles.buttonText}>
-              {isInitialized ? 'Start Workout' : 'Initializing...'}
+              {isAuthorizing ? 'Authorizing Spotify...' : isInitialized ? 'Start Workout' : 'Initializing...'}
             </Text>
           </TouchableOpacity>
         </View>
